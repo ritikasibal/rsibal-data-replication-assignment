@@ -112,7 +112,8 @@ head(winkler_data)
 The authors used a few non intuitive abbreviations to code their data. For the sake of convince, I will print out there code book here
 
 ``` {r codebook}
-knitr::kable(read.xlsx("http://raw.githubusercontent.com/ritikasibal/rsibal-data-replication-assignment/main/Winkler_Perry_dataset_with_codebook.xlsx", sheet = 'codebook'))
+knitr::kable(read.xlsx("http://raw.githubusercontent.com/ritikasibal/rsibal-data-replication-assignment/main/Winkler_Perry_dataset_with_codebook.xlsx", sheet = 'codebook')) %>%
+kable_styling()
 ```
 
 <br>'To determine sex differences in the rates of each behavior and how they change over the lifespan', the authors ran a series of generalized linear mixed models, with **outcome variables**=*social play, solitary play, and grooming*,  **predictor variables**=*sex, age, and the interaction between sex and age* and **random effect**=*individual* which accounted for repeated sampling for each individual over time. I will attempt to do the same!
@@ -146,9 +147,12 @@ df3 <- data.frame(Model_Type=c('negative binomial', 'poisson'), AIC=c(summary(wp
 ```
 
 ``` {r printresults,echo=FALSE}
-knitr::kable(df1, format = "html", caption="Social Play Models")
-knitr::kable(df2, format = "html", caption="Grooming Models")
-knitr::kable(df3, format = "html", caption="Solitary Play Models")
+knitr::kable(df1, format = "html", caption="Social Play Models", digits=2) %>%
+kable_styling()
+knitr::kable(df2, format = "html", caption="Grooming Models", digits=2) %>%
+kable_styling()
+knitr::kable(df3, format = "html", caption="Solitary Play Models", digits=2) %>%
+kable_styling()
 ```
 
 <br> Comparing the AIC and BIC values for all three outcome variables of *social play, solitary play, and grooming* we see that the AIC and BIC values for all three are lower in the negative binomial model, meaning that it is a better fit. This is consistent with what the authors found! A negative binomial model accounts for a variance of the data is higher than the mean.
@@ -397,9 +401,9 @@ Makes sense! From our confusion matrices we saw that Travel and Rest has the bes
 
 A 65% accuracy is okay, and it is possible it is so low because we haven't taken into account the random effect of individual. In order to do that, we would need to do use a glmm. But, glmms don't allow outcome variables that are categorical with multiple categories, which we have. The Act variable can be one of 6 different values. During my research, I found out about MCMCglmms which do allow for multinomial categorical output variables!
 
-MCMCglmms use a bit of Bayesian statistics, which often requires a prior. Since I was really unsure about my data and the relationships between variables, I used the default prior which is very very generous. Something else to note is the nitt and burnin rates which are the baseline recommended rates, 3000 simulations will be burned from the total 100000!
+MCMCglmms use a bit of Bayesian statistics, which often requires a prior. Since I was really unsure about my data and the relationships between variables, I used the default prior which is very very generous. Something else to note is the nitt and burnin rates which are the recommended rates, 10000 simulations will be burned from the total 100000!
 
-``` {r Inferential Stat Knott}
+``` {r Inferential Stat Knott, results='hide'}
 
 model_mcmc_1 <- MCMCglmm(Act ~ Age + TP + BP,
                   random = ~Follow+Name+Date, 
@@ -407,6 +411,7 @@ model_mcmc_1 <- MCMCglmm(Act ~ Age + TP + BP,
                   family = "categorical",
                   data     = knott_data,
                   nitt     = 100000,
+                  burnin   = 10000,
                   pr=TRUE)
 
 summary(model_mcmc_1)
@@ -417,21 +422,25 @@ model_mcmc_2 <- MCMCglmm(Act ~ Age + Age*Age + TP + BP + BP*Age + TP*BP,
                   family = "categorical",
                   data     = knott_data,
                   nitt     = 100000,
+                  burnin   = 10000,
                   pr=TRUE)
 
 summary(model_mcmc_2)
+```
 
+``` {r MCMC analysis}
 par(mar = c(1, 1, 1, 1), ps = 7)
 # lets see if our models are good!
 plot(model_mcmc_1$VCV, xaxt="n")
 plot(model_mcmc_2$VCV, xaxt="n")
 
 df <- data.frame(model=c("Model 1", "Model 2"), DIC=c(model_mcmc_1$DIC, model_mcmc_2$DIC))
-knitr::kable(df, format = "html", caption="MCMCglmm Models")
+knitr::kable(df, format = "html", caption="MCMCglmm Models", digits=2) %>%
+kable_styling()
 ```
 <br> The things to look out for here are 1) whether our models are mixed. This should look like a 'caterpillar' with a distinct middle line, in our plots. 2) the DIC value (which will be lower for better models).
 
-Based on that, it seems like *Act ~ Age + AgexAge + TP + BP + BPxAge + TPxBP* is the best formula for the prediction as it plots look better samples and the DIC value for this model!
+Based on that, it seems like *Age + TP + BP* is the best formula for the prediction as it plots look better samples and the DIC value for this model!
 
 ## Conclusion
 Now that we have a few decently predictive models, my next step will be to re-organise and re-filter the data and run them through the models again. I'd also like to take into account sex in the future, to see if it can also predict Act type, but that will require me to comb through the data again as some fields have "infant" or "juvenile" but no sex data. Lastly, I thought it would be cool if I can describe a state machine for each of the age groups to see the transitions between motions!
